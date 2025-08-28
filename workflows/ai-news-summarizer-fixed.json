@@ -1,0 +1,329 @@
+{
+  "name": "AI News Summarizer + LinkedIn Publisher (Fixed)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/feed/",
+        "options": {}
+      },
+      "id": "http-request-1",
+      "name": "Fetch TechCrunch RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.vox.com/rss/index.xml",
+        "options": {}
+      },
+      "id": "http-request-2",
+      "name": "Fetch Vox RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html",
+        "options": {}
+      },
+      "id": "http-request-3",
+      "name": "Fetch CNBC RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse RSS XML and extract articles\n// The HTTP Request node returns an object with 'data' property containing the XML\nconst xmlData = $json.data || $json;\nlet articles = [];\n\ntry {\n  // Ensure we have a string\n  if (typeof xmlData !== 'string') {\n    console.log('xmlData is not a string:', typeof xmlData);\n    console.log('xmlData content:', xmlData);\n    throw new Error('XML data is not a string');\n  }\n  \n  // Clean up the XML data - remove newlines and normalize\n  const cleanXml = xmlData.replace(/\\n/g, ' ').replace(/\\s+/g, ' ');\n  \n  // Find all item tags\n  const itemRegex = /<item[^>]*>([\\s\\S]*?)<\\/item>/g;\n  const items = [];\n  let match;\n  \n  while ((match = itemRegex.exec(cleanXml)) !== null) {\n    items.push(match[1]);\n  }\n  \n  console.log('Found', items.length, 'items in RSS feed');\n  \n  items.forEach((item, index) => {\n    // Extract title\n    const titleMatch = item.match(/<title[^>]*>([^<]+)<\\/title>/);\n    \n    // Extract link\n    const linkMatch = item.match(/<link[^>]*>([^<]+)<\\/link>/);\n    \n    // Extract description (handle CDATA)\n    const descMatch = item.match(/<description[^>]*>\\s*<!\\[CDATA\\[([^\\]]*)\\]\\]>\\s*<\\/description>/);\n    const description = descMatch ? descMatch[1].trim() : '';\n    \n    // Extract pubDate\n    const pubDateMatch = item.match(/<pubDate[^>]*>([^<]+)<\\/pubDate>/);\n    \n    if (titleMatch && linkMatch) {\n      const article = {\n        title: titleMatch[1].trim(),\n        link: linkMatch[1].trim(),\n        description: description,\n        pubDate: pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString(),\n        source: 'TechCrunch'\n      };\n      \n      console.log('Parsed article', index + 1, ':', article.title);\n      articles.push(article);\n    }\n  });\n  \n  // Limit to 5 articles per feed\n  articles = articles.slice(0, 5);\n  \n  console.log('Total articles parsed:', articles.length);\n  \n} catch (error) {\n  console.log('Error parsing RSS:', error);\n  if (typeof xmlData === 'string') {\n    console.log('XML data preview:', xmlData.substring(0, 500));\n  } else {\n    console.log('XML data type:', typeof xmlData);\n    console.log('XML data content:', xmlData);\n  }\n  articles = [];\n}\n\nreturn articles.map(article => ({ json: article }));"
+      },
+      "id": "parse-rss-1",
+      "name": "Parse TechCrunch RSS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse RSS XML and extract articles\n// The HTTP Request node returns an object with 'data' property containing the XML\nconst xmlData = $json.data || $json;\nlet articles = [];\n\ntry {\n  // Ensure we have a string\n  if (typeof xmlData !== 'string') {\n    console.log('xmlData is not a string:', typeof xmlData);\n    console.log('xmlData content:', xmlData);\n    throw new Error('XML data is not a string');\n  }\n  \n  // Clean up the XML data - remove newlines and normalize\n  const cleanXml = xmlData.replace(/\\n/g, ' ').replace(/\\s+/g, ' ');\n  \n  // Find all item tags\n  const itemRegex = /<item[^>]*>([\\s\\S]*?)<\\/item>/g;\n  const items = [];\n  let match;\n  \n  while ((match = itemRegex.exec(cleanXml)) !== null) {\n    items.push(match[1]);\n  }\n  \n  console.log('Found', items.length, 'items in RSS feed');\n  \n  items.forEach((item, index) => {\n    // Extract title\n    const titleMatch = item.match(/<title[^>]*>([^<]+)<\\/title>/);\n    \n    // Extract link\n    const linkMatch = item.match(/<link[^>]*>([^<]+)<\\/link>/);\n    \n    // Extract description (handle CDATA)\n    const descMatch = item.match(/<description[^>]*>\\s*<!\\[CDATA\\[([^\\]]*)\\]\\]>\\s*<\\/description>/);\n    const description = descMatch ? descMatch[1].trim() : '';\n    \n    // Extract pubDate\n    const pubDateMatch = item.match(/<pubDate[^>]*>([^<]+)<\\/pubDate>/);\n    \n    if (titleMatch && linkMatch) {\n      const article = {\n        title: titleMatch[1].trim(),\n        link: linkMatch[1].trim(),\n        description: description,\n        pubDate: pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString(),\n        source: 'Vox'\n      };\n      \n      console.log('Parsed article', index + 1, ':', article.title);\n      articles.push(article);\n    }\n  });\n  \n  // Limit to 5 articles per feed\n  articles = articles.slice(0, 5);\n  \n  console.log('Total articles parsed:', articles.length);\n  \n} catch (error) {\n  console.log('Error parsing RSS:', error);\n  if (typeof xmlData === 'string') {\n    console.log('XML data preview:', xmlData.substring(0, 500));\n  } else {\n    console.log('XML data type:', typeof xmlData);\n    console.log('XML data content:', xmlData);\n  }\n  articles = [];\n}\n\nreturn articles.map(article => ({ json: article }));"
+      },
+      "id": "parse-rss-2",
+      "name": "Parse Vox RSS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse RSS XML and extract articles\n// The HTTP Request node returns an object with 'data' property containing the XML\nconst xmlData = $json.data || $json;\nlet articles = [];\n\ntry {\n  // Ensure we have a string\n  if (typeof xmlData !== 'string') {\n    console.log('xmlData is not a string:', typeof xmlData);\n    console.log('xmlData content:', xmlData);\n    throw new Error('XML data is not a string');\n  }\n  \n  // Clean up the XML data - remove newlines and normalize\n  const cleanXml = xmlData.replace(/\\n/g, ' ').replace(/\\s+/g, ' ');\n  \n  // Find all item tags\n  const itemRegex = /<item[^>]*>([\\s\\S]*?)<\\/item>/g;\n  const items = [];\n  let match;\n  \n  while ((match = itemRegex.exec(cleanXml)) !== null) {\n    items.push(match[1]);\n  }\n  \n  console.log('Found', items.length, 'items in RSS feed');\n  \n  items.forEach((item, index) => {\n    // Extract title\n    const titleMatch = item.match(/<title[^>]*>([^<]+)<\\/title>/);\n    \n    // Extract link\n    const linkMatch = item.match(/<link[^>]*>([^<]+)<\\/link>/);\n    \n    // Extract description (handle CDATA)\n    const descMatch = item.match(/<description[^>]*>\\s*<!\\[CDATA\\[([^\\]]*)\\]\\]>\\s*<\\/description>/);\n    const description = descMatch ? descMatch[1].trim() : '';\n    \n    // Extract pubDate\n    const pubDateMatch = item.match(/<pubDate[^>]*>([^<]+)<\\/pubDate>/);\n    \n    if (titleMatch && linkMatch) {\n      const article = {\n        title: titleMatch[1].trim(),\n        link: linkMatch[1].trim(),\n        description: description,\n        pubDate: pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString(),\n        source: 'CNBC'\n      };\n      \n      console.log('Parsed article', index + 1, ':', article.title);\n      articles.push(article);\n    }\n  });\n  \n  // Limit to 5 articles per feed\n  articles = articles.slice(0, 5);\n  \n  console.log('Total articles parsed:', articles.length);\n  \n} catch (error) {\n  console.log('Error parsing RSS:', error);\n  if (typeof xmlData === 'string') {\n    console.log('XML data preview:', xmlData.substring(0, 500));\n  } else {\n    console.log('XML data type:', typeof xmlData);\n    console.log('XML data content:', xmlData);\n  }\n  articles = [];\n}\n\nreturn articles.map(article => ({ json: article }));"
+      },
+      "id": "parse-rss-3",
+      "name": "Parse CNBC RSS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      },
+      "id": "merge-feeds",
+      "name": "Merge RSS Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        900,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter articles by age and content quality\nconst now = new Date();\nconst maxAgeHours = 48;\nconst minAgeHours = 1;\n\n// Filter by publication date\nconst filteredItems = $input.all().filter(item => {\n  const pubDate = new Date(item.json.pubDate || item.json.isoDate);\n  const ageHours = (now - pubDate) / (1000 * 60 * 60);\n  \n  // Check if article is within acceptable age range\n  if (ageHours < minAgeHours || ageHours > maxAgeHours) {\n    return false;\n  }\n  \n  // Check for excluded keywords\n  const title = (item.json.title || '').toLowerCase();\n  const description = (item.json.description || '').toLowerCase();\n  const content = title + ' ' + description;\n  \n  const excludeKeywords = ['sponsored', 'advertisement', 'promoted', 'advertorial'];\n  if (excludeKeywords.some(keyword => content.includes(keyword))) {\n    return false;\n  }\n  \n  // Check for included keywords\n  const includeKeywords = ['ai', 'artificial intelligence', 'machine learning', 'startup', 'innovation', 'technology', 'business', 'entrepreneurship'];\n  if (!includeKeywords.some(keyword => content.includes(keyword))) {\n    return false;\n  }\n  \n  return true;\n});\n\n// Limit to top 5 articles\nreturn filteredItems.slice(0, 5);"
+      },
+      "id": "filter-content",
+      "name": "Filter Content Quality",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "openAiApi",
+        "model": "gpt-4o-mini",
+        "prompt": "You are a professional content editor and social media expert. Your task is to create engaging, informative summaries of news articles for LinkedIn posts.\n\nPlease summarize this article for a LinkedIn post:\n\nTitle: {{ $json.title }}\n\nContent: {{ $json.description || $json.content }}\n\nSource: {{ $json.link }}\n\nReturn JSON format:\n{\n  \"summary\": \"Your summary here (80-120 words)\",\n  \"hashtags\": \"#Hashtag1 #Hashtag2 #Hashtag3\"\n}\n\nGuidelines:\n1. Use neutral, professional tone\n2. Focus on key insights and actionable takeaways\n3. Make it engaging for business audience\n4. Use 2-3 relevant hashtags\n5. Keep summary under 120 words",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 500
+        }
+      },
+      "id": "openai-summarize",
+      "name": "Summarize with OpenAI",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenAI response and format for LinkedIn\nconst response = $json.text;\nlet summary, hashtags;\n\ntry {\n  // Try to parse JSON response\n  const parsed = JSON.parse(response);\n  summary = parsed.summary;\n  hashtags = parsed.hashtags;\n} catch (error) {\n  // Fallback: extract summary and hashtags from text\n  const lines = response.split('\\n');\n  summary = lines.find(line => line.includes('summary') || line.includes('Summary')) || response;\n  hashtags = response.match(/#\\w+/g)?.join(' ') || '#News #Technology';\n}\n\n// Clean up summary\nsummary = summary.replace(/^.*?summary.*?:/i, '').trim();\nsummary = summary.replace(/^.*?Summary.*?:/i, '').trim();\n\n// Ensure hashtags are properly formatted\nif (!hashtags.startsWith('#')) {\n  hashtags = '#' + hashtags.replace(/^#/, '');\n}\n\n// Build LinkedIn post\nconst postText = `🧠 ${$('Filter Content Quality').item.json.title}\\n\\n${summary}\\n\\nSource: ${$('Filter Content Quality').item.json.link}\\n\\n${hashtags}`;\n\n// Check character limit\nif (postText.length > 3000) {\n  // Truncate summary if needed\n  const maxSummaryLength = 3000 - postText.length + summary.length;\n  summary = summary.substring(0, maxSummaryLength - 3) + '...';\n}\n\nreturn {\n  json: {\n    title: $('Filter Content Quality').item.json.title,\n    link: $('Filter Content Quality').item.json.link,\n    summary: summary,\n    hashtags: hashtags,\n    postText: postText,\n    characterCount: postText.length,\n    source: $('Filter Content Quality').item.json.source || 'RSS Feed'\n  }\n};"
+      },
+      "id": "format-post",
+      "name": "Format LinkedIn Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// For testing, just log the post instead of actually posting to LinkedIn\nconst postData = $json;\n\nconsole.log('=== LINKEDIN POST (TEST MODE) ===');\nconsole.log('Title:', postData.title);\nconsole.log('Summary:', postData.summary);\nconsole.log('Hashtags:', postData.hashtags);\nconsole.log('Character Count:', postData.characterCount);\nconsole.log('Full Post Text:');\nconsole.log(postData.postText);\nconsole.log('================================');\n\n// Return success response\nreturn {\n  json: {\n    success: true,\n    message: 'Post would be published to LinkedIn (test mode)',\n    postId: 'test-' + Date.now(),\n    ...postData\n  }\n};"
+      },
+      "id": "test-post",
+      "name": "Test Post (No LinkedIn)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch TechCrunch RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch TechCrunch RSS": {
+      "main": [
+        [
+          {
+            "node": "Parse TechCrunch RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Vox RSS": {
+      "main": [
+        [
+          {
+            "node": "Parse Vox RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch CNBC RSS": {
+      "main": [
+        [
+          {
+            "node": "Parse CNBC RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse TechCrunch RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge RSS Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Vox RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge RSS Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse CNBC RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge RSS Feeds",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge RSS Feeds": {
+      "main": [
+        [
+          {
+            "node": "Filter Content Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Content Quality": {
+      "main": [
+        [
+          {
+            "node": "Summarize with OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize with OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Format LinkedIn Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format LinkedIn Post": {
+      "main": [
+        [
+          {
+            "node": "Test Post (No LinkedIn)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "ai-news",
+      "name": "AI News"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "linkedin",
+      "name": "LinkedIn"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "fixed",
+      "name": "Fixed"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

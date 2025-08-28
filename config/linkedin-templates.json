@@ -1,0 +1,119 @@
+{
+  "post_templates": {
+    "standard": {
+      "format": "🧠 {title}\n\n{summary}\n\nSource: {url}\n\n{hashtags}",
+      "max_length": 3000,
+      "description": "Standard format with brain emoji and source attribution"
+    },
+    "insight": {
+      "format": "💡 Key Insight: {title}\n\n{summary}\n\nWhat this means for you: {key_takeaway}\n\nSource: {url}\n\n{hashtags}",
+      "max_length": 3000,
+      "description": "Insight-focused format with key takeaways"
+    },
+    "trend": {
+      "format": "📈 Trending: {title}\n\n{summary}\n\nWhy this matters: {trend_analysis}\n\nSource: {url}\n\n{hashtags}",
+      "max_length": 3000,
+      "description": "Trend-focused format with trend analysis"
+    },
+    "question": {
+      "format": "🤔 {title}\n\n{summary}\n\nWhat do you think? Share your thoughts below! 👇\n\nSource: {url}\n\n{hashtags}",
+      "max_length": 3000,
+      "description": "Engagement-focused format with question"
+    },
+    "minimal": {
+      "format": "{title}\n\n{summary}\n\n{url}\n\n{hashtags}",
+      "max_length": 3000,
+      "description": "Minimal format without emojis"
+    }
+  },
+  "hashtag_sets": {
+    "technology": [
+      "#Technology",
+      "#Innovation",
+      "#TechNews",
+      "#DigitalTransformation",
+      "#AI",
+      "#MachineLearning",
+      "#Startups",
+      "#TechTrends"
+    ],
+    "business": [
+      "#Business",
+      "#Leadership",
+      "#Strategy",
+      "#Entrepreneurship",
+      "#Innovation",
+      "#Growth",
+      "#BusinessInsights",
+      "#FutureOfWork"
+    ],
+    "ai": [
+      "#AI",
+      "#ArtificialIntelligence",
+      "#MachineLearning",
+      "#TechInnovation",
+      "#FutureOfTech",
+      "#AIEthics",
+      "#DigitalTransformation"
+    ],
+    "startup": [
+      "#Startups",
+      "#Entrepreneurship",
+      "#Innovation",
+      "#BusinessGrowth",
+      "#TechStartups",
+      "#VentureCapital",
+      "#StartupLife"
+    ],
+    "general": [
+      "#News",
+      "#CurrentEvents",
+      "#Insights",
+      "#ProfessionalDevelopment",
+      "#IndustryNews",
+      "#Trending"
+    ]
+  },
+  "post_settings": {
+    "default_template": "standard",
+    "max_posts_per_day": 3,
+    "min_time_between_posts_hours": 4,
+    "preferred_posting_times": [
+      "08:00",
+      "12:00",
+      "17:00"
+    ],
+    "visibility": "PUBLIC",
+    "auto_hashtag": true,
+    "include_source": true,
+    "character_limit": 3000
+  },
+  "engagement_optimization": {
+    "hook_patterns": [
+      "Just discovered...",
+      "Breaking news...",
+      "This is game-changing...",
+      "Important update...",
+      "You won't believe...",
+      "Fascinating insight..."
+    ],
+    "call_to_actions": [
+      "What do you think?",
+      "Share your thoughts below!",
+      "Agree or disagree?",
+      "Tag someone who needs to see this!",
+      "Follow for more insights!",
+      "Like and share if you found this helpful!"
+    ],
+    "emoji_mapping": {
+      "technology": "🤖",
+      "business": "💼",
+      "innovation": "💡",
+      "ai": "🧠",
+      "startup": "🚀",
+      "trending": "📈",
+      "insight": "💭",
+      "news": "📰"
+    }
+  }
+}
