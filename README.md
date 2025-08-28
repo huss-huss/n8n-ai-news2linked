@@ -1,46 +1,31 @@
-# AI Summarizer + LinkedIn Publisher
+# AI News Summarizer + LinkedIn Publisher
 
-An intelligent n8n workflow that automatically scrapes news articles, summarizes them using AI, and publishes the summaries to LinkedIn with proper formatting and hashtags.
+An automated n8n workflow that scrapes daily news articles, summarizes them using AI, and publishes the summaries to LinkedIn with optimized formatting and hashtags.
 
 ## 🚀 Features
 
-- **Automated News Fetching**: RSS feed integration for multiple news sources
-- **AI-Powered Summarization**: OpenAI GPT integration for intelligent content summarization
-- **Smart Deduplication**: Prevents posting duplicate articles
-- **LinkedIn Integration**: Automatic posting to personal or company LinkedIn profiles
-- **Content Formatting**: Professional formatting with hashtags and source attribution
-- **Error Handling**: Robust error handling and retry mechanisms
-- **Optional Newsletter**: Email newsletter functionality for subscribers
+- **Automated News Collection**: Fetches articles from multiple RSS feeds (TechCrunch, Vox, CNBC, etc.)
+- **AI-Powered Summarization**: Uses OpenAI GPT-4o-mini to create engaging summaries
+- **Content Quality Filtering**: Filters out low-quality or irrelevant content
+- **LinkedIn Optimization**: Formats posts with proper hashtags, character limits, and engagement patterns
+- **Deduplication**: Prevents posting the same article multiple times
+- **Scheduling**: Runs daily via cron trigger
+- **Error Handling**: Robust error handling and logging
+- **Newsletter Generation**: Optional weekly email newsletter compilation
 
 ## 📋 Prerequisites
 
-### LinkedIn Setup
-1. Create a LinkedIn App at [LinkedIn Developers](https://www.linkedin.com/developers/)
-2. Configure OAuth 2.0 with required scopes:
-   - `w_member_social` (for personal posting)
-   - `w_organization_social` (for company page posting)
-3. Note your Client ID and Client Secret
-
-### OpenAI Setup
-1. Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/)
-2. Ensure you have sufficient credits for API calls
-
-### n8n Setup
-1. Install n8n (self-hosted or cloud)
-2. Install required nodes:
-   - RSS Read
-   - OpenAI
-   - LinkedIn
-   - HTTP Request
-   - Item Lists
-   - Data Store
+- **n8n** (running via Docker or local installation)
+- **OpenAI API Key** (for content summarization)
+- **LinkedIn Developer Account** (for posting to LinkedIn)
+- **Docker** (recommended for easy setup)
 
 ## 🏗️ Architecture
 
 ```
-Cron Trigger → RSS Feeds → Content Processing → AI Summarization → LinkedIn Publishing
+Daily Trigger → RSS Feeds → Content Filtering → AI Summarization → LinkedIn Publishing
      ↓              ↓              ↓                ↓                ↓
-Daily Schedule → Multiple Sources → Deduplication → OpenAI GPT → Formatted Posts
+  Schedule    Multiple Sources  Quality Check   GPT-4o-mini    Optimized Posts
 ```
 
 ## 📁 Project Structure
@@ -48,52 +33,86 @@ Daily Schedule → Multiple Sources → Deduplication → OpenAI GPT → Formatt
 ```
 n8n-ai-news2linked/
 ├── workflows/
-│   ├── ai-news-summarizer.json          # Main workflow
-│   └── newsletter-generator.json        # Optional newsletter workflow
+│   ├── ai-news-summarizer-production.json    # Main production workflow
+│   └── newsletter-generator.json             # Optional newsletter workflow
 ├── config/
-│   ├── news-sources.json               # RSS feed configurations
-│   ├── prompts.json                    # AI prompt templates
-│   └── linkedin-templates.json         # LinkedIn post templates
-├── scripts/
-│   ├── setup.sh                        # Setup script
-│   └── test-workflow.sh                # Testing utilities
+│   ├── news-sources.json                     # RSS feed configurations
+│   ├── prompts.json                          # AI prompt templates
+│   └── linkedin-templates.json               # LinkedIn post templates
 ├── docs/
-│   ├── setup-guide.md                  # Detailed setup instructions
-│   ├── troubleshooting.md              # Common issues and solutions
-│   └── api-reference.md                # API documentation
-└── README.md                           # This file
+│   ├── setup-guide.md                        # Detailed setup instructions
+│   ├── troubleshooting.md                    # Common issues and solutions
+│   └── api-reference.md                      # API documentation
+├── scripts/
+│   ├── setup.sh                              # Automated setup script
+│   └── test-workflow.sh                      # Workflow testing script
+├── .env                                      # Environment variables (create this)
+├── .gitignore                                # Git ignore rules
+└── README.md                                 # This file
 ```
 
-## 🚀 Quick Start
+## ⚡ Quick Start
 
-1. **Clone and Setup**:
-   ```bash
-   git clone <your-repo>
-   cd n8n-ai-news2linked
-   chmod +x scripts/setup.sh
-   ./scripts/setup.sh
-   ```
+### 1. Clone and Setup
 
-2. **Configure Environment**:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys and settings
-   ```
+```bash
+git clone https://github.com/huss-huss/n8n-ai-news2linked.git
+cd n8n-ai-news2linked
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
 
-3. **Import Workflow**:
-   - Open n8n
-   - Import `workflows/ai-news-summarizer.json`
-   - Configure your credentials
+### 2. Configure Environment
 
-4. **Test and Deploy**:
-   ```bash
-   ./scripts/test-workflow.sh
-   ```
+Create a `.env` file with your API keys:
 
-## ⚙️ Configuration
+```bash
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_MAX_TOKENS=500
+OPENAI_TEMPERATURE=0.7
 
-### News Sources
-Edit `config/news-sources.json` to add your preferred RSS feeds:
+# LinkedIn Configuration
+LINKEDIN_CLIENT_ID=your_linkedin_client_id
+LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
+LINKEDIN_REDIRECT_URI=http://localhost:5678/callback
+
+# Workflow Settings
+MAX_ARTICLES_PER_SOURCE=5
+MAX_TOTAL_ARTICLES=10
+MIN_ARTICLE_AGE_HOURS=1
+MAX_ARTICLE_AGE_HOURS=24
+```
+
+### 3. Start n8n
+
+```bash
+# Using Docker (recommended)
+docker run -d --name n8n -p 5678:5678 n8nio/n8n
+
+# Or using local installation
+n8n start
+```
+
+### 4. Import Workflow
+
+1. Open n8n at `http://localhost:5678`
+2. Go to Workflows → Import from File
+3. Select `workflows/ai-news-summarizer-production.json`
+4. Configure your credentials (OpenAI and LinkedIn)
+
+### 5. Test and Deploy
+
+1. Test with a single article first
+2. Monitor the workflow execution
+3. Schedule for daily runs
+
+## 🔧 Configuration
+
+### News Sources (`config/news-sources.json`)
+
+Configure RSS feeds, filtering criteria, and content preferences:
 
 ```json
 {
@@ -101,110 +120,118 @@ Edit `config/news-sources.json` to add your preferred RSS feeds:
     {
       "name": "TechCrunch",
       "url": "https://techcrunch.com/feed/",
-      "category": "technology"
-    },
-    {
-      "name": "Vox",
-      "url": "https://www.vox.com/rss/index.xml",
-      "category": "general"
+      "category": "technology",
+      "enabled": true,
+      "priority": 1
     }
-  ]
-}
-```
-
-### AI Prompts
-Customize AI behavior in `config/prompts.json`:
-
-```json
-{
-  "summarization": {
-    "system": "You are a concise editor. Summarize the article in ≤120 words, neutral tone, plain text (no markdown). Add up to 3 relevant hashtags (letter/number only). Return JSON: {summary, hashtags}.",
-    "max_words": 120,
-    "max_hashtags": 3
+  ],
+  "settings": {
+    "max_articles_per_source": 5,
+    "max_total_articles": 10,
+    "keywords_filter": ["AI", "technology", "innovation"],
+    "exclude_keywords": ["sponsored", "advertisement"]
   }
 }
 ```
 
-## 🔧 Workflow Components
+### AI Prompts (`config/prompts.json`)
 
-### 1. Trigger Node
-- **Type**: Cron
-- **Schedule**: Daily at 08:00 AM
-- **Alternative**: RSS Feed Trigger for real-time processing
+Customize AI behavior for summarization and content optimization:
 
-### 2. RSS Reader
-- Fetches articles from configured RSS feeds
-- Extracts title, link, description, and publication date
-- Handles multiple feeds in parallel
+```json
+{
+  "summarization": {
+    "system": "You are an expert content summarizer...",
+    "user_template": "Summarize this article in {max_words} words...",
+    "max_words": 150,
+    "temperature": 0.7
+  }
+}
+```
 
-### 3. Content Processing
-- **Deduplication**: Checks Data Store for previously posted URLs
-- **Content Enhancement**: Optional HTML fetching for better summaries
-- **Filtering**: Removes low-quality or irrelevant content
+### LinkedIn Templates (`config/linkedin-templates.json`)
 
-### 4. AI Summarization
-- **Model**: OpenAI GPT-4 or GPT-3.5-turbo
-- **Input**: Article title + content excerpt
-- **Output**: Structured JSON with summary and hashtags
-- **Error Handling**: Retry logic for API failures
+Define post formats and hashtag strategies:
 
-### 5. LinkedIn Publishing
-- **Format**: Professional post with emoji, summary, source link, and hashtags
-- **Character Limit**: Enforces 3,000 character LinkedIn limit
-- **Visibility**: Configurable (public, connections, etc.)
-- **Error Handling**: Specific handling for LinkedIn API errors
+```json
+{
+  "post_templates": {
+    "standard": {
+      "format": "{title}\n\n{summary}\n\nRead more: {link}\n\n{hashtags}",
+      "max_length": 1300
+    }
+  },
+  "hashtag_sets": {
+    "technology": ["#Tech", "#Innovation", "#AI", "#Technology"]
+  }
+}
+```
 
-## 📊 Monitoring and Analytics
+## 🔄 Workflow Components
 
-- **Success Rate**: Track successful posts vs. failures
-- **Content Quality**: Monitor AI summary quality
-- **Engagement**: Track LinkedIn post performance
-- **Cost Tracking**: Monitor OpenAI API usage
+### Main Workflow (`ai-news-summarizer-production.json`)
+
+1. **Daily Trigger**: Cron-based scheduling
+2. **RSS Fetching**: HTTP requests to multiple RSS feeds
+3. **Content Parsing**: Custom JavaScript for XML parsing
+4. **Content Filtering**: Quality and relevance checks
+5. **AI Summarization**: OpenAI-powered content summarization
+6. **Post Formatting**: LinkedIn-optimized formatting
+7. **LinkedIn Publishing**: Automated posting with error handling
+8. **Success Logging**: Comprehensive execution logging
+
+### Newsletter Workflow (`newsletter-generator.json`)
+
+Optional workflow for generating weekly email newsletters by compiling summaries of posted articles.
+
+## 📊 Monitoring and Logging
+
+- **Execution Logs**: Detailed logs in n8n interface
+- **Success Tracking**: Post IDs and URLs logged
+- **Error Handling**: Graceful failure handling
+- **Performance Metrics**: Character counts, processing times
 
 ## 🛠️ Troubleshooting
 
-### Common Issues
+Common issues and solutions:
 
-1. **LinkedIn API Errors**:
-   - Check OAuth scopes
-   - Verify X-Restli-Protocol-Version header
-   - Ensure app is approved
+### LinkedIn API Issues
+- **OAuth Scope Errors**: Ensure all required scopes are added in LinkedIn Developer Console
+- **Posting Failures**: Check credential authentication and permissions
 
-2. **OpenAI Rate Limits**:
-   - Implement exponential backoff
-   - Check API key validity
-   - Monitor usage limits
+### OpenAI API Issues
+- **Connection Errors**: Verify API key and network connectivity
+- **Rate Limits**: Monitor usage and implement backoff strategies
 
-3. **RSS Feed Issues**:
-   - Verify feed URLs
-   - Check feed format compatibility
-   - Handle malformed XML
+### RSS Feed Issues
+- **Parsing Errors**: Check feed availability and XML structure
+- **No Content**: Verify feed URLs and content filtering settings
 
 See `docs/troubleshooting.md` for detailed solutions.
 
-## 🔒 Security Considerations
+## 🔒 Security
 
-- Store API keys securely in n8n credentials
-- Use environment variables for sensitive data
-- Implement rate limiting to prevent abuse
-- Regular security audits of third-party integrations
+- **API Keys**: Stored in `.env` file (not committed to git)
+- **OAuth2**: Secure LinkedIn authentication
+- **Data Privacy**: No personal data stored or transmitted
+- **Rate Limiting**: Respects API rate limits
 
-## 📈 Future Enhancements
+## 🚀 Future Enhancements
 
-- [ ] Multi-language support
-- [ ] Advanced content filtering
-- [ ] A/B testing for post formats
-- [ ] Analytics dashboard
-- [ ] Slack/Discord notifications
-- [ ] Content scheduling
-- [ ] Image generation for posts
+- [ ] **Multi-platform Publishing**: Twitter, Facebook, Medium
+- [ ] **Advanced Analytics**: Engagement tracking and optimization
+- [ ] **Content Scheduling**: Intelligent posting times
+- [ ] **Image Generation**: AI-generated post images
+- [ ] **Sentiment Analysis**: Content sentiment optimization
+- [ ] **A/B Testing**: Post format optimization
+- [ ] **Webhook Integration**: Real-time content triggers
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
+4. Test thoroughly
 5. Submit a pull request
 
 ## 📄 License
@@ -213,9 +240,16 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🆘 Support
 
-- **Issues**: Create an issue on GitHub
-- **Documentation**: Check the `docs/` folder
-- **Community**: Join n8n community discussions
+- **Documentation**: Check `docs/` folder
+- **Issues**: Create GitHub issues for bugs
+- **Discussions**: Use GitHub Discussions for questions
+
+## 🎯 Success Metrics
+
+- **Automated Daily Posts**: Consistent LinkedIn content
+- **Engagement Rates**: Optimized for LinkedIn algorithm
+- **Content Quality**: AI-filtered high-quality summaries
+- **Time Savings**: Automated workflow reduces manual effort
 
 ---
 
