@@ -1,256 +1,125 @@
 # AI News Summarizer + LinkedIn Publisher
 
-An automated n8n workflow that scrapes daily news articles, summarizes them using AI, and publishes the summaries to LinkedIn with optimized formatting and hashtags.
+An n8n workflow that reads tech and business RSS feeds, picks fresh and relevant articles, summarizes them
+with an LLM (OpenAI Chat Completions) and publishes the result to LinkedIn through LinkedIn's official API.
+It runs in dry-run mode by default, never posts the same link twice, and sends an alert when a run fails.
 
-## 🚀 Features
+Built in 2025; hardened in 2026 with a rebuilt workflow on supported n8n nodes, de-duplication, a dry-run
+gate, retries and timeouts, an error workflow, a workflow validator, tests, a pinned Docker setup and CI.
 
-- **Automated News Collection**: Fetches articles from multiple RSS feeds (TechCrunch, Vox, CNBC, etc.)
-- **AI-Powered Summarization**: Uses OpenAI GPT-4o-mini to create engaging summaries
-- **Content Quality Filtering**: Filters out low-quality or irrelevant content
-- **LinkedIn Optimization**: Formats posts with proper hashtags, character limits, and engagement patterns
-- **Deduplication**: Prevents posting the same article multiple times
-- **Scheduling**: Runs daily via cron trigger
-- **Error Handling**: Robust error handling and logging
-- **Newsletter Generation**: Optional weekly email newsletter compilation
+## What it does
 
-## 📋 Prerequisites
-
-- **n8n** (running via Docker or local installation)
-- **OpenAI API Key** (for content summarization)
-- **LinkedIn Developer Account** (for posting to LinkedIn)
-- **Docker** (recommended for easy setup)
-
-## 🏗️ Architecture
-
-```
-Daily Trigger → RSS Feeds → Content Filtering → AI Summarization → LinkedIn Publishing
-     ↓              ↓              ↓                ↓                ↓
-  Schedule    Multiple Sources  Quality Check   GPT-4o-mini    Optimized Posts
+```mermaid
+flowchart LR
+    A["Daily Trigger (cron 0 8 * * *)"] --> B["Feed List (7 enabled feeds)"]
+    B --> C["Read RSS Feed (retry 3x, skip failed feeds)"]
+    C --> D["Filter and Dedup (age, keywords, posted links)"]
+    D -->|"0 new"| X(["Stop: nothing to post"])
+    D --> E["Summarize with OpenAI (JSON mode, 60 s timeout, retry 3x)"]
+    E --> F["Format LinkedIn Post (char limit, hashtags)"]
+    F --> G{"DRY_RUN?"}
+    G -->|"true (default)"| H["Dry Run Log"]
+    G -->|"false"| I["Post to LinkedIn (official API, no retry)"]
+    I --> J["Record Posted (static data)"]
+    C -. "run fails" .-> K["Error Notifier (Webhook)"]
+    E -. "run fails" .-> K
+    I -. "run fails" .-> K
 ```
 
-## 📁 Project Structure
+| File | Purpose |
+| --- | --- |
+| `workflows/ai-news-summarizer-production.json` | Main workflow |
+| `workflows/error-notifier.json` | Error workflow: posts a redacted failure summary to a Slack/Discord-style webhook |
+| `config/news-sources.json` | Feeds (enabled flags) and keyword filters, embedded in the workflow |
+| `config/prompts.json` | Summarization system prompt, embedded in the workflow |
+| `config/linkedin-templates.json` | Reference post formats and hashtag sets |
+| `tools/validate_workflows.py` | Static checks for workflow JSON |
 
-```
-n8n-ai-news2linked/
-├── workflows/
-│   ├── ai-news-summarizer-production.json    # Main production workflow
-│   └── newsletter-generator.json             # Optional newsletter workflow
-├── config/
-│   ├── news-sources.json                     # RSS feed configurations
-│   ├── prompts.json                          # AI prompt templates
-│   └── linkedin-templates.json               # LinkedIn post templates
-├── docs/
-│   ├── setup-guide.md                        # Detailed setup instructions
-│   ├── troubleshooting.md                    # Common issues and solutions
-│   └── api-reference.md                      # API documentation
-├── scripts/
-│   ├── setup.sh                              # Automated setup script
-│   └── test-workflow.sh                      # Workflow testing script
-├── .env                                      # Environment variables (create this)
-├── .gitignore                                # Git ignore rules
-└── README.md                                 # This file
-```
+## Setup in 5 steps
 
-## ⚡ Quick Start
+Prerequisites: Docker with the Compose plugin, an OpenAI API key, and a LinkedIn developer app with the
+*Share on LinkedIn* product. Full details are in [docs/setup-guide.md](docs/setup-guide.md).
 
-### 1. Clone and Setup
+1. **Prepare the environment**: `./scripts/setup.sh` creates `.env` from `.env.example` with
+   `DRY_RUN=true` and a random `N8N_ENCRYPTION_KEY`, then validates the workflows.
+2. **Start n8n**: `docker compose up -d`, open http://localhost:5678 and create the owner account.
+3. **Add credentials** in n8n: *OpenAI* named `OpenAI account`, and *LinkedIn OAuth2 API* named
+   `LinkedIn account` (Client ID and Secret from your LinkedIn app, then *Connect*).
+4. **Import**: `docker compose exec n8n n8n import:workflow --separate --input=/workflows`. Select the
+   credentials and your LinkedIn profile on the nodes, and set *Settings, Error workflow* to
+   `Error Notifier (Webhook)`.
+5. **Dry run, then go live**: execute once and review the *Dry Run Log* output. When it looks right, set
+   `DRY_RUN=false`, run `docker compose up -d` and activate the workflow.
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `N8N_ENCRYPTION_KEY` | none (required) | Encrypts n8n credentials; keep it stable |
+| `GENERIC_TIMEZONE` | `UTC` | Timezone of the 08:00 schedule |
+| `N8N_BLOCK_ENV_ACCESS_IN_NODE` | `false` | Must be `false`: the workflows read the settings below via `$env` |
+| `DRY_RUN` | `true` | Anything except `false` logs the post instead of publishing it |
+| `MAX_POSTS_PER_RUN` | `1` | Maximum posts published per run |
+| `LINKEDIN_CHAR_LIMIT` | `3000` | Post length cap; the summary is trimmed to fit |
+| `MIN_ARTICLE_AGE_HOURS` / `MAX_ARTICLE_AGE_HOURS` | `1` / `48` | Age window for articles |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Chat Completions model |
+| `ALERT_WEBHOOK_URL` | empty | Slack/Discord-style incoming webhook for failure alerts; empty disables alerts |
+
+API keys and OAuth secrets are never in `.env` or in the workflow JSON; they live in n8n's encrypted
+credential store. The validator fails CI if a secret, personal e-mail address or undocumented `$env`
+variable appears in a workflow.
+
+## Reliability features
+
+- **Dry run by default**: a fresh install publishes nothing until `DRY_RUN=false` is set.
+- **De-duplication**: links are canonicalized (tracking parameters and fragments removed) and checked
+  against the last 1,000 posted links in workflow static data. A link is recorded only after LinkedIn
+  accepts the post, so failed posts are retried on the next run.
+- **No duplicate posts on retry**: the LinkedIn node is deliberately not retried, because a retry after
+  a timed-out but successful request would publish twice.
+- **Retries and timeouts**: feeds are retried 3 times and then skipped so one dead feed does not stop
+  the run; the OpenAI call has a 60 s timeout and 3 retries; the whole run is capped at 10 minutes.
+- **Guarded LLM output**: the model is asked for JSON (`response_format: json_object`); an answer without
+  a valid summary is skipped, never published. Hashtags are sanitized and capped at 3.
+- **Failure alerts**: the error workflow sends workflow name, node and error message to a webhook, with
+  API keys and bearer tokens redacted.
+- **Tests**: pytest covers the validator (with a deliberately broken fixture), the consistency between the
+  workflow and `config/`, and the Code-node JavaScript, run under Node.js with a small n8n stand-in.
+
+## Development
 
 ```bash
-git clone https://github.com/huss-huss/n8n-ai-news2linked.git
-cd n8n-ai-news2linked
-chmod +x scripts/setup.sh
-./scripts/setup.sh
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r requirements-dev.txt
+python tools/validate_workflows.py workflows --env-example .env.example
+pytest                      # Code-node tests need Node.js; they are skipped without it
+shellcheck scripts/*.sh
+./scripts/test-workflow.sh  # live check of enabled feeds (and OPENAI_API_KEY if set)
 ```
 
-### 2. Configure Environment
+CI (`.github/workflows/ci.yml`) runs the same checks, plus a JSON lint and `docker compose config`.
 
-Create a `.env` file with your API keys:
+## LinkedIn API and terms
 
-```bash
-# OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_MAX_TOKENS=500
-OPENAI_TEMPERATURE=0.7
+Posting goes only through LinkedIn's official API, using n8n's LinkedIn node and an OAuth app you create.
+There is no scraping or browser automation. You are responsible for following
+[LinkedIn's API Terms of Use](https://www.linkedin.com/legal/l/api-terms-of-use) and the rules of the
+products your app is approved for, including any limits on automated posting. Keep `MAX_POSTS_PER_RUN`
+low, review dry-run output before going live, and make sure each post credits its source (the workflow
+always includes the article link).
 
-# LinkedIn Configuration
-LINKEDIN_CLIENT_ID=your_linkedin_client_id
-LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
-LINKEDIN_REDIRECT_URI=http://localhost:5678/callback
+## Limitations
 
-# Workflow Settings
-MAX_ARTICLES_PER_SOURCE=5
-MAX_TOTAL_ARTICLES=10
-MIN_ARTICLE_AGE_HOURS=1
-MAX_ARTICLE_AGE_HOURS=24
-```
-
-### 3. Start n8n
-
-```bash
-# Using Docker (recommended)
-docker run -d --name n8n -p 5678:5678 n8nio/n8n
-
-# Or using local installation
-n8n start
-```
-
-### 4. Import Workflow
-
-1. Open n8n at `http://localhost:5678`
-2. Go to Workflows → Import from File
-3. Select `workflows/ai-news-summarizer-production.json`
-4. Configure your credentials (OpenAI and LinkedIn)
-
-### 5. Test and Deploy
-
-1. Test with a single article first
-2. Monitor the workflow execution
-3. Schedule for daily runs
-
-## 🔧 Configuration
-
-### News Sources (`config/news-sources.json`)
-
-Configure RSS feeds, filtering criteria, and content preferences:
-
-```json
-{
-  "sources": [
-    {
-      "name": "TechCrunch",
-      "url": "https://techcrunch.com/feed/",
-      "category": "technology",
-      "enabled": true,
-      "priority": 1
-    }
-  ],
-  "settings": {
-    "max_articles_per_source": 5,
-    "max_total_articles": 10,
-    "keywords_filter": ["AI", "technology", "innovation"],
-    "exclude_keywords": ["sponsored", "advertisement"]
-  }
-}
-```
-
-### AI Prompts (`config/prompts.json`)
-
-Customize AI behavior for summarization and content optimization:
-
-```json
-{
-  "summarization": {
-    "system": "You are an expert content summarizer...",
-    "user_template": "Summarize this article in {max_words} words...",
-    "max_words": 150,
-    "temperature": 0.7
-  }
-}
-```
-
-### LinkedIn Templates (`config/linkedin-templates.json`)
-
-Define post formats and hashtag strategies:
-
-```json
-{
-  "post_templates": {
-    "standard": {
-      "format": "{title}\n\n{summary}\n\nRead more: {link}\n\n{hashtags}",
-      "max_length": 1300
-    }
-  },
-  "hashtag_sets": {
-    "technology": ["#Tech", "#Innovation", "#AI", "#Technology"]
-  }
-}
-```
-
-## 🔄 Workflow Components
-
-### Main Workflow (`ai-news-summarizer-production.json`)
-
-1. **Daily Trigger**: Cron-based scheduling
-2. **RSS Fetching**: HTTP requests to multiple RSS feeds
-3. **Content Parsing**: Custom JavaScript for XML parsing
-4. **Content Filtering**: Quality and relevance checks
-5. **AI Summarization**: OpenAI-powered content summarization
-6. **Post Formatting**: LinkedIn-optimized formatting
-7. **LinkedIn Publishing**: Automated posting with error handling
-8. **Success Logging**: Comprehensive execution logging
-
-### Newsletter Workflow (`newsletter-generator.json`)
-
-Optional workflow for generating weekly email newsletters by compiling summaries of posted articles.
-
-## 📊 Monitoring and Logging
-
-- **Execution Logs**: Detailed logs in n8n interface
-- **Success Tracking**: Post IDs and URLs logged
-- **Error Handling**: Graceful failure handling
-- **Performance Metrics**: Character counts, processing times
-
-## 🛠️ Troubleshooting
-
-Common issues and solutions:
-
-### LinkedIn API Issues
-- **OAuth Scope Errors**: Ensure all required scopes are added in LinkedIn Developer Console
-- **Posting Failures**: Check credential authentication and permissions
-
-### OpenAI API Issues
-- **Connection Errors**: Verify API key and network connectivity
-- **Rate Limits**: Monitor usage and implement backoff strategies
-
-### RSS Feed Issues
-- **Parsing Errors**: Check feed availability and XML structure
-- **No Content**: Verify feed URLs and content filtering settings
-
-See `docs/troubleshooting.md` for detailed solutions.
-
-## 🔒 Security
-
-- **API Keys**: Stored in `.env` file (not committed to git)
-- **OAuth2**: Secure LinkedIn authentication
-- **Data Privacy**: No personal data stored or transmitted
-- **Rate Limiting**: Respects API rate limits
-
-## 🚀 Future Enhancements
-
-- [ ] **Multi-platform Publishing**: Twitter, Facebook, Medium
-- [ ] **Advanced Analytics**: Engagement tracking and optimization
-- [ ] **Content Scheduling**: Intelligent posting times
-- [ ] **Image Generation**: AI-generated post images
-- [ ] **Sentiment Analysis**: Content sentiment optimization
-- [ ] **A/B Testing**: Post format optimization
-- [ ] **Webhook Integration**: Real-time content triggers
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-- **Documentation**: Check `docs/` folder
-- **Issues**: Create GitHub issues for bugs
-- **Discussions**: Use GitHub Discussions for questions
-
-## 🎯 Success Metrics
-
-- **Automated Daily Posts**: Consistent LinkedIn content
-- **Engagement Rates**: Optimized for LinkedIn algorithm
-- **Content Quality**: AI-filtered high-quality summaries
-- **Time Savings**: Automated workflow reduces manual effort
-
----
-
-**Built with ❤️ using n8n, OpenAI, and LinkedIn APIs**
+- n8n saves static data only for production executions (active workflow, started by its trigger).
+  Manual runs with `DRY_RUN=false` can post a link again.
+- The posted-link history lives in the n8n database; it is lost if the `n8n_data` volume is deleted or
+  the workflow is re-imported as a new workflow.
+- Feeds, keywords and the system prompt are copied from `config/` into the workflow, not read at runtime;
+  a test keeps them in sync. `config/linkedin-templates.json` is not used by the workflow.
+- Summaries are generated from the RSS snippet, not the full article, so they are only as good as the
+  feed's description. Review dry-run output before enabling posting.
+- The error workflow has to be linked by hand after import (workflow IDs differ per instance).
+- The workflow JSON targets n8n 2.x and is checked statically in CI; CI does not import it into a
+  running n8n instance.
+- The weekly newsletter workflow from the 2025 version was removed because it could not run; it is
+  still in git history.
