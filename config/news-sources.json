@@ -46,15 +46,17 @@
       "name": "Harvard Business Review",
       "url": "https://hbr.org/feed",
       "category": "business",
-      "enabled": true,
-      "priority": 1
+      "enabled": false,
+      "priority": 1,
+      "note": "Disabled: feed URL returned HTTP 404 when checked in Nov 2026"
     },
     {
       "name": "Fast Company",
       "url": "https://www.fastcompany.com/feed",
       "category": "business",
-      "enabled": true,
-      "priority": 2
+      "enabled": false,
+      "priority": 2,
+      "note": "Disabled: feed returned HTTP 403 to non-browser clients when checked in Nov 2026"
     },
     {
       "name": "Ars Technica",
@@ -67,8 +69,9 @@
       "name": "VentureBeat",
       "url": "https://venturebeat.com/feed/",
       "category": "technology",
-      "enabled": true,
-      "priority": 2
+      "enabled": false,
+      "priority": 2,
+      "note": "Disabled: feed returned HTTP 429 (rate limited) when checked in Nov 2026"
     }
   ],
   "settings": {
