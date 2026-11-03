@@ -1,0 +1,84 @@
+{
+  "name": "Error Notifier (Webhook)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read an env variable with a default. n8n 2.x blocks $env unless\n// N8N_BLOCK_ENV_ACCESS_IN_NODE=false; fall back to the default in that case.\nconst env = (name, fallback) => {\n  try {\n    const value = $env[name];\n    return value === undefined || value === '' ? fallback : value;\n  } catch (error) {\n    return fallback;\n  }\n};\nconst webhook = env('ALERT_WEBHOOK_URL', '');\nif (!webhook) {\n  console.log('ALERT_WEBHOOK_URL not set; skipping failure alert');\n  return [];\n}\nconst redact = (s) => String(s ?? '')\n  .replace(/sk-[A-Za-z0-9_-]{8,}/g, 'sk-***')\n  .replace(/Bearer\\s+[A-Za-z0-9._~+\\/-]+/gi, 'Bearer ***')\n  .replace(/((?:access_|api_)?token|key|secret|password)=[^&\\s]+/gi, '$1=***');\nconst e = $json;\nconst workflow = e.workflow?.name || 'unknown workflow';\nconst node = e.execution?.lastNodeExecuted || e.trigger?.node?.name || 'unknown node';\nconst error = redact(e.execution?.error?.message || e.trigger?.error?.message || 'Unknown error').slice(0, 500);\nlet text = `n8n workflow failed\\nWorkflow: ${workflow}\\nNode: ${node}\\nError: ${error}`;\nif (e.execution?.url) text += `\\nExecution: ${e.execution.url}`;\n// \"text\" is read by Slack-style webhooks, \"content\" by Discord-style webhooks.\nreturn [{ json: { webhook, payload: { text, content: text } } }];"
+      },
+      "id": "build-alert",
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "send-alert",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60
+  },
+  "pinData": {},
+  "tags": [],
+  "versionId": "1"
+}
